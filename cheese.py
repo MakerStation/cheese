@@ -136,8 +136,8 @@ def collectStats (filename):
 	batteryLevel = 95
 	dateTime = "2015-05-03_144844"
 	
-	rawSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, PHOTO_EXTENSIONS[0])
-	jpgSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, PHOTO_EXTENSIONS[1])
+	rawSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, PHOTO_EXTENSIONS[0]))
+	jpgSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, PHOTO_EXTENSIONS[1]))
 	
 	stats = {
 		"environment": [ {
