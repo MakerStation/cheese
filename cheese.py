@@ -66,7 +66,7 @@ def movePictures (filename):
 			shutil.copy(localFile, targetFile)
 			log("<- copying - DONE")
 		except Exception as e:
-			log("exception: %s", str(e))
+			log("exception: %s" % str(e))
 			pass
 
 		if os.path.isfile(targetFile):
