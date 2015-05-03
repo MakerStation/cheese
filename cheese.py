@@ -103,7 +103,7 @@ def sendThumbnail (filename):
 
 def connectGPRS ():
 	log(">>> connect GPRS")
-	process = subprocess.Popen(["sudo", "/home/pi/sakis3g/sakis3g", "connect", "USBMODEM=\"12d1:1001\"", "APN=\"ibox.tim.it\""], stdout=subprocess.PIPE)
+	process = subprocess.Popen(["sudo", "sakis3g", "connect", "USBMODEM=\"12d1:1001\"", "APN=\"ibox.tim.it\""], stdout=subprocess.PIPE)
 	(output, err) = process.communicate()
 	exit_code = process.wait()
 
@@ -114,7 +114,7 @@ def connectGPRS ():
 
 def disconnectGPRS ():
 	log(">>> disconnect GPRS")
-	process = subprocess.Popen(["sudo", "/home/pi/sakis3g/sakis3g", "disconnect"], stdout=subprocess.PIPE)
+	process = subprocess.Popen(["sudo", "sakis3g", "disconnect"], stdout=subprocess.PIPE)
 	(output, err) = process.communicate()
 	exit_code = process.wait()
 
