@@ -2,4 +2,6 @@
 
 readonly CURR_DIR=$(cd "$(dirname "$0")"; pwd -P)
 
-${CURR_DIR}/cheese.py $@
+cd ${CURR_DIR}
+
+./cheese.py $@ >> cheese.log 2>&1
