@@ -9,7 +9,7 @@ import keen
 
 CAMERA_TYPE = 'Canon'
 LOCAL_FOLDER = '/home/pi/cheese'
-PHOTO_FOLDER = '/media/photo'
+PHOTO_FOLDER = '/media/usb0'
 PHOTO_EXTENSIONS = ['cr2', 'jpg']
 S3_BUCKET = "timelapse"
 
