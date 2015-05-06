@@ -13,7 +13,7 @@ PHOTO_FOLDER = '/media/photo'
 PHOTO_EXTENSIONS = ['cr2', 'jpg']
 S3_BUCKET = "timelapse"
 
-
+POST_URL = ''
 keen.project_id = ''
 keen.write_key  = ''
 
@@ -92,7 +92,14 @@ def sendThumbnailToS3 (filename):
 
 
 def sendThumbnailViaHttpPost (filename):
-	pass
+	file = "%s/%s.%s" % (LOCAL_FOLDER, filename, "jpg")
+
+	files = {'file': ('gpt_file', open(file, 'rb'))}
+	data = {'gpt_percorso': "D:/wwwroot/3pix/public/timelapse/test"}
+	headers = {'content-type': 'multipart/form-data'}
+	response = requests.post(POST_URL, files=files, data=data, headers=headers)
+	
+	return response
 
 
 def sendThumbnail (filename):
