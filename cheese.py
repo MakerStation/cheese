@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 import subprocess
 import os, shutil
 import keen
+import requests
+import serial
+import time
 
 
 CAMERA_TYPE = 'Canon'
@@ -82,7 +85,7 @@ def sendThumbnailToS3 (filename):
 	from boto.s3.connection import S3Connection
 	from boto.s3.key import Key
 	
-	file = "%s/%s.%s" % (LOCAL_FOLDER, filename, "jpg")
+	file = "%s/%s.%s" % (PHOTO_FOLDER, filename, "jpg")
 	
 	connection = S3Connection()
 	bucket = connection.get_bucket(S3_BUCKET)
@@ -92,7 +95,7 @@ def sendThumbnailToS3 (filename):
 
 
 def sendThumbnailViaHttpPost (filename):
-	file = "%s/%s.%s" % (LOCAL_FOLDER, filename, "jpg")
+	file = "%s/%s.%s" % (PHOTO_FOLDER, filename, "jpg")
 
 	files = {'file': ('gpt_file', open(file, 'rb'))}
 	data = {'gpt_percorso': "D:/wwwroot/3pix/public/timelapse/test"}
@@ -132,14 +135,16 @@ def disconnectGPRS ():
 
 def readLineFromSerialPort ():
 	#	http://www.texnological.blogspot.it/2014/03/raspberry-pi-read-data-from-usb-serial.html
-	return "Ore 14:55:23 Volts 13.50 Temp. 22.00"
+	# TODO: find out the actual device to use
+#	return serial.Serial('/dev/ttyUSB3', 9600).readline()
+	return "Ore 16:9:53   Volts 12.54   Temp. 25.45\n"
 
 
 def collectStats (filename):
 	log(">>> collect stats")
 	statInfo = readLineFromSerialPort()
 
-	temperature = 10.5
+	temperature = 25.45
 	batteryLevel = 95
 	dateTime = "2015-05-03_144844"
 	
@@ -156,7 +161,11 @@ def collectStats (filename):
 			"name":    filename,
 			"rawSize": rawSize,
 			"jpgSize": jpgSize
-		} ]
+		} ],
+		"raspberry": [ {
+			"boot":   20,
+			"photo":  70
+		}]
 	}
 	log("<<< collect stats")
 	
@@ -176,7 +185,13 @@ def sendStats (stats):
 
 def signalShuttingDown ():
 	log(">>> signal shutting down")
-	pass
+	command = ["gpio", "export", "18", "out"]
+	result = subprocess.check_output(command)
+	command = ["gpio", "-g", "write", "18", "1"]
+	result = subprocess.check_output(command)
+	time.sleep(1)
+	command = ["gpio", "-g", "write", "18", "0"]
+	result = subprocess.check_output(command)
 	log("<<< signal shutting down")
 
 
@@ -187,11 +202,11 @@ def shutdown ():
 
 
 def cheese (filename):
-#	turnCameraOn()
+	turnCameraOn()
+	connectGPRS()
 	takePhoto(filename)
 	movePictures(filename)
-	connectGPRS()
-	sendThumbnail(filename)
+#	sendThumbnail(filename)
 	sendStats(collectStats(filename))
 	disconnectGPRS()
 	signalShuttingDown()
@@ -204,7 +219,7 @@ def main ():
 
 	resetUsb(CAMERA_TYPE)
 	cheese (filename)
-	resetUsb(CAMERA_TYPE)
+#	resetUsb(CAMERA_TYPE)
 
 
 if __name__ == "__main__":
