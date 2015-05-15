@@ -1,0 +1,3 @@
+#!/bin/bash
+
+hwinfo --short --usb 2> /dev/null | grep $@ | awk '{ print $1 }'
