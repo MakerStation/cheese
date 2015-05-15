@@ -8,12 +8,16 @@ import keen
 import requests
 import serial
 import time
+import re
+import glob
+import sys
 
-
+CAMERA_ID = '001'
 CAMERA_TYPE = 'Canon'
 LOCAL_FOLDER = '/home/pi/cheese'
 PHOTO_FOLDER = '/media/photo'
-PHOTO_EXTENSIONS = ['cr2', 'jpg']
+RAW_EXTENSION = 'cr2'
+JPG_EXTENSION = 'jpg'
 S3_BUCKET = "timelapse"
 
 POST_URL = ''
@@ -23,6 +27,7 @@ keen.write_key  = ''
 
 def log (message):
 	print datetime.utcnow(), message
+	pass
 
 
 def resetUsb (cameraType):
@@ -53,11 +58,12 @@ def takePhoto (filename):
 	log("<<< take photo")
 
 
-def movePictures (filename):
+def movePicture (filename):
 	import traceback
 
 	log(">>> move pictures")
-	for extension in PHOTO_EXTENSIONS:
+#	for extension in PHOTO_EXTENSIONS:
+	for extension in [RAW_EXTENSION]:
 		log("-- extension: %s" % extension)
 		localFile = "%s/%s.%s" % (LOCAL_FOLDER, filename, extension)
 		log("-- local file: %s" % localFile)
@@ -81,33 +87,36 @@ def movePictures (filename):
 	log("<<< move pictures")
 
 
-def sendThumbnailToS3 (filename):
-	from boto.s3.connection import S3Connection
-	from boto.s3.key import Key
-	
-	file = "%s/%s.%s" % (PHOTO_FOLDER, filename, "jpg")
-	
-	connection = S3Connection()
-	bucket = connection.get_bucket(S3_BUCKET)
-	snapshot = Key(bucket)
-	snapshot.key = "%s.jpg" % filename
-	snapshot.set_contents_from_filename(file)
-
-
 def sendThumbnailViaHttpPost (filename):
-	file = "%s/%s.%s" % (PHOTO_FOLDER, filename, "jpg")
+	log(">>> sendThumbnailViaHttpPost - %s" % filename)
+	files = {'Filedata': (filename, open(filename, 'rb'), 'image/jpeg')}
+	headers = {
+		'Accept-Encoding': 'gzip, deflate',
+		'Accept': '*/*',
+		'Accept-Language': 'en-us'
+	}
 
-	files = {'file': ('gpt_file', open(file, 'rb'))}
-	data = {'gpt_percorso': "D:/wwwroot/3pix/public/timelapse/test"}
-	headers = {'content-type': 'multipart/form-data'}
-	response = requests.post(POST_URL, files=files, data=data, headers=headers)
-	
+	request = requests.Request('POST', POST_URL, files=files, headers=headers)
+	preparedRequest = request.prepare()
+
+	session = requests.Session()
+	response = session.send(preparedRequest)
+	log("<<< sendThumbnailViaHttpPost - %s" % response.status_code)
+
 	return response
 
 
-def sendThumbnail (filename):
+def sendThumbnails ():
 	log(">>> send thumbnail")
-	sendThumbnailViaHttpPost(filename)
+	for file in glob.glob("*.%s" % JPG_EXTENSION):
+		try:
+			response = sendThumbnailViaHttpPost(file)
+			if response.status_code == 200:
+				log("--- removing thumbnail file %s" % file)
+				os.remove(file)
+		except:
+			log("error uploading file")
+			pass
 	log("<<< send thumbnail")
 
 
@@ -134,37 +143,60 @@ def disconnectGPRS ():
 
 
 def readLineFromSerialPort ():
-	#	http://www.texnological.blogspot.it/2014/03/raspberry-pi-read-data-from-usb-serial.html
-	# TODO: find out the actual device to use
-#	return serial.Serial('/dev/ttyUSB3', 9600).readline()
-	return "Ore 16:9:53   Volts 12.54   Temp. 25.45\n"
+	process = subprocess.Popen(["./usbDevice", "Prolific"], stdout=subprocess.PIPE)
+	(output, err) = process.communicate()
+	exit_code = process.wait()
+	
+	device = output.rstrip()
+	log("serial connector device: %s" % device)
+	data = serial.Serial(device, 9600).readline()
+	log("serial data: %s" % data)
+	
+	return data
+
+
+def convertDiskSpace (value):
+	return (value.f_bavail * value.f_frsize) / 1024 / 1024
 
 
 def collectStats (filename):
 	log(">>> collect stats")
-	statInfo = readLineFromSerialPort()
+	now = datetime.now()
 
-	temperature = 25.45
-	batteryLevel = 95
-	dateTime = "2015-05-03_144844"
+	statInfo = readLineFromSerialPort()
+	match = re.search(r"[^\d]*(\d*):(\d*):(\d*)\s*[^\d]*([\d\.]*)[^\d]*([\d\.]*)", statInfo)
 	
-	rawSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, PHOTO_EXTENSIONS[0]))
-	jpgSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, PHOTO_EXTENSIONS[1]))
+	hours = int(match.group(1))
+	minutes = int(match.group(2))
+	seconds = int(match.group(3))
+	batteryLevel = float(match.group(4))
+	temperature = float(match.group(5))
+
+	time = now.strftime('%Y-%m-%d') + "T" + "%02d:%02d:%02d" % (hours, minutes, seconds) + ".000Z"
+	raspberryTime = now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+	rawSize = os.path.getsize("%s/%s.%s" % (PHOTO_FOLDER, filename, RAW_EXTENSION))
+	
+	bootAvailableSpace = convertDiskSpace(os.statvfs('/'))
+	photoAvailableSpace = convertDiskSpace(os.statvfs(PHOTO_FOLDER))
 	
 	stats = {
 		"environment": [ {
-			"temperature": temperature,
+			"camera":       CAMERA_ID,
+			"temperature":  temperature,
 			"batteryLevel": batteryLevel,
-			"dateTime": dateTime
+			"time": time
 		} ],
 		"image": [ {
-			"name":    filename,
-			"rawSize": rawSize,
-			"jpgSize": jpgSize
+			"camera":   CAMERA_ID,
+			"name":     filename,
+			"rawSize":  rawSize
 		} ],
 		"raspberry": [ {
-			"boot":   20,
-			"photo":  70
+			"camera":   CAMERA_ID,
+			"boot":     bootAvailableSpace,
+			"photo":    photoAvailableSpace,
+			"dateTime": raspberryTime
 		}]
 	}
 	log("<<< collect stats")
@@ -173,11 +205,6 @@ def collectStats (filename):
 
 
 def sendStats (stats):
-#	https://github.com/keenlabs/KeenClient-Python
-
-#	from keen.client import KeenClient
-#	client = KeenClient(project_id="xxxx", write_key="yyyy")
-#	keen.add_event("sign_ups", {"username": "lloyd", "referred_by": "harry"})
 	log(">>> send stats")
 	keen.add_events(stats)
 	log("<<< send stats")
@@ -202,25 +229,29 @@ def shutdown ():
 
 
 def cheese (filename):
+	resetUsb(CAMERA_TYPE)
 	turnCameraOn()
-	connectGPRS()
 	takePhoto(filename)
-	movePictures(filename)
-#	sendThumbnail(filename)
+	movePicture(filename)
+	connectGPRS()
+	sendThumbnails()
 	sendStats(collectStats(filename))
 	disconnectGPRS()
-	signalShuttingDown()
-	shutdown()
 
 
 def main ():
 	now = datetime.now()
 	filename = now.strftime('%Y-%m-%d_%H%M%S')
+	log("Filename: %s" % filename)
 
-	resetUsb(CAMERA_TYPE)
-	cheese (filename)
-#	resetUsb(CAMERA_TYPE)
+	try:
+		cheese (filename)
+	finally:
+		signalShuttingDown()
+		shutdown()
+		pass
 
 
 if __name__ == "__main__":
+#	log("readline: %s" % readLineFromSerialPort())
 	main()
