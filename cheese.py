@@ -20,13 +20,17 @@ RAW_EXTENSION = 'cr2'
 JPG_EXTENSION = 'jpg'
 S3_BUCKET = "timelapse"
 
-POST_URL = ''
-keen.project_id = ''
-keen.write_key  = ''
+# POST_URL = ''
+# keen.project_id = ''
+# keen.write_key  = ''
+
+POST_URL = "http://www.3pix.it/sistema/uploadfiles.asp?des=public/timelapse/test"
+keen.project_id = '5544fbb946f9a7243e52688e'
+keen.write_key  = '2b4658243ca3a0235b94b9d1b2be71abd32aee181ed55c75c1a14ba6287299f55de05d85a16fa1d9c310f4e61130be392360c8dda126caf0f66815a24d45ca12a52fa4c76ac9ac64776c729005a8ce35a042c343e2aae7181d799696623f7f2df466ae4b5e8a0ef6fb50c73cc439337e'
 
 
 def log (message):
-	print datetime.utcnow(), message
+#	print datetime.utcnow(), message
 	pass
 
 
@@ -47,8 +51,21 @@ def resetUsb (cameraType):
 	log("<<< reset USB")
 
 
+def signalOnPin (pin, message):
+	log(">>> %s" % message)
+	command = ["gpio", "export", str(pin), "out"]
+	result = subprocess.check_output(command)
+	command = ["gpio", "-g", "write", str(pin), "1"]
+	result = subprocess.check_output(command)
+	time.sleep(1)
+	command = ["gpio", "-g", "write", str(pin), "0"]
+	result = subprocess.check_output(command)
+	log("<<< %s" % message)
+	
+
 def turnCameraOn ():
-	pass
+	signalOnPin(23, "turning camera on")
+	time.sleep(4)
 
 
 def takePhoto (filename):
@@ -62,7 +79,6 @@ def movePicture (filename):
 	import traceback
 
 	log(">>> move pictures")
-#	for extension in PHOTO_EXTENSIONS:
 	for extension in [RAW_EXTENSION]:
 		log("-- extension: %s" % extension)
 		localFile = "%s/%s.%s" % (LOCAL_FOLDER, filename, extension)
@@ -86,6 +102,13 @@ def movePicture (filename):
 			raise Exception("something went wrong copying the file")
 	log("<<< move pictures")
 
+
+def resizeThumbnail (filename):
+	log(">>> resize thumbnail")
+	imageFile = "%s.%s" % (filename, JPG_EXTENSION)
+	command = ["convert", imageFile, "-resize", "10%%", imageFile]
+	result = subprocess.check_output(command)
+	log("<<< resize thumbnail")
 
 def sendThumbnailViaHttpPost (filename):
 	log(">>> sendThumbnailViaHttpPost - %s" % filename)
@@ -211,15 +234,7 @@ def sendStats (stats):
 
 
 def signalShuttingDown ():
-	log(">>> signal shutting down")
-	command = ["gpio", "export", "18", "out"]
-	result = subprocess.check_output(command)
-	command = ["gpio", "-g", "write", "18", "1"]
-	result = subprocess.check_output(command)
-	time.sleep(1)
-	command = ["gpio", "-g", "write", "18", "0"]
-	result = subprocess.check_output(command)
-	log("<<< signal shutting down")
+	signalOnPin(18, "signal shutting down")
 
 
 def shutdown ():
@@ -229,10 +244,11 @@ def shutdown ():
 
 
 def cheese (filename):
-	resetUsb(CAMERA_TYPE)
 	turnCameraOn()
+#	resetUsb(CAMERA_TYPE)
 	takePhoto(filename)
 	movePicture(filename)
+	resizeThumbnail(filename)
 	connectGPRS()
 	sendThumbnails()
 	sendStats(collectStats(filename))
