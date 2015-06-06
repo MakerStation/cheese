@@ -18,19 +18,15 @@ LOCAL_FOLDER = '/home/pi/cheese'
 PHOTO_FOLDER = '/media/photo'
 RAW_EXTENSION = 'cr2'
 JPG_EXTENSION = 'jpg'
-S3_BUCKET = "timelapse"
+THUMBNAIL_RESIZE_FACTOR = '50%%'
 
-# POST_URL = ''
-# keen.project_id = ''
-# keen.write_key  = ''
-
-POST_URL = "http://www.3pix.it/sistema/uploadfiles.asp?des=public/timelapse/test"
-keen.project_id = '5544fbb946f9a7243e52688e'
-keen.write_key  = '2b4658243ca3a0235b94b9d1b2be71abd32aee181ed55c75c1a14ba6287299f55de05d85a16fa1d9c310f4e61130be392360c8dda126caf0f66815a24d45ca12a52fa4c76ac9ac64776c729005a8ce35a042c343e2aae7181d799696623f7f2df466ae4b5e8a0ef6fb50c73cc439337e'
+POST_URL = ''
+keen.project_id = ''
+keen.write_key  = ''
 
 
 def log (message):
-#	print datetime.utcnow(), message
+	print datetime.utcnow(), message
 	pass
 
 
@@ -50,6 +46,13 @@ def resetUsb (cameraType):
 				print err
 	log("<<< reset USB")
 
+
+def remountFilesystem ():
+	log(">>> remount file system")
+	command = ["sudo", "mount", "-a"]
+	result = subprocess.check_output(command)
+	log("<<< remount file system")
+	
 
 def signalOnPin (pin, message):
 	log(">>> %s" % message)
@@ -106,7 +109,7 @@ def movePicture (filename):
 def resizeThumbnail (filename):
 	log(">>> resize thumbnail")
 	imageFile = "%s.%s" % (filename, JPG_EXTENSION)
-	command = ["convert", imageFile, "-resize", "10%%", imageFile]
+	command = ["convert", imageFile, "-resize", THUMBNAIL_RESIZE_FACTOR, imageFile]
 	result = subprocess.check_output(command)
 	log("<<< resize thumbnail")
 
@@ -186,14 +189,22 @@ def collectStats (filename):
 	log(">>> collect stats")
 	now = datetime.now()
 
-	statInfo = readLineFromSerialPort()
-	match = re.search(r"[^\d]*(\d*):(\d*):(\d*)\s*[^\d]*([\d\.]*)[^\d]*([\d\.]*)", statInfo)
+	try:
+		statInfo = readLineFromSerialPort()
+		match = re.search(r"[^\d]*(\d*):(\d*):(\d*)\s*[^\d]*([\d\.]*)[^\d]*([\d\.]*)", statInfo)
 	
-	hours = int(match.group(1))
-	minutes = int(match.group(2))
-	seconds = int(match.group(3))
-	batteryLevel = float(match.group(4))
-	temperature = float(match.group(5))
+		hours = int(match.group(1))
+		minutes = int(match.group(2))
+		seconds = int(match.group(3))
+		batteryLevel = float(match.group(4))
+		temperature = float(match.group(5))
+	except:
+		hours = 0
+		minutes = 0
+		seconds = 0
+		batteryLevel = 1
+		temperature = 1
+		
 
 	time = now.strftime('%Y-%m-%d') + "T" + "%02d:%02d:%02d" % (hours, minutes, seconds) + ".000Z"
 	raspberryTime = now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -246,6 +257,7 @@ def shutdown ():
 def cheese (filename):
 	turnCameraOn()
 #	resetUsb(CAMERA_TYPE)
+	remountFilesystem()
 	takePhoto(filename)
 	movePicture(filename)
 	resizeThumbnail(filename)
@@ -262,6 +274,8 @@ def main ():
 
 	try:
 		cheese (filename)
+	except:
+		time.sleep(120)
 	finally:
 		signalShuttingDown()
 		shutdown()
