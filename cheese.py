@@ -6,6 +6,7 @@ import subprocess
 import os, shutil
 import keen
 import requests
+import logging
 import serial
 import time
 import re
