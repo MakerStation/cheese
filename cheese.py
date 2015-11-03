@@ -191,20 +191,29 @@ def collectStats (filename):
 
 	try:
 		statInfo = readLineFromSerialPort()
-		match = re.search(r"[^\d]*(\d*):(\d*):(\d*)\s*[^\d]*([\d\.]*)[^\d]*([\d\.]*)", statInfo)
-	
+#		match = re.search(r"[^\d]*(\d*):(\d*):(\d*)\s*[^\d]*([\d\.]*)[^\d]*([\d\.]*)", statInfo)
+		match = re.search(r"[^\d]*(\d*):(\d*):(\d*)\s*[^\d]*([\d\.]*)[^\d]*([\d\.]*)[^\d]*([\d\.]*)[^\d]*([\d]*)", statInfo)
+
 		hours = int(match.group(1))
 		minutes = int(match.group(2))
 		seconds = int(match.group(3))
 		batteryLevel = float(match.group(4))
-		temperature = float(match.group(5))
+		cameraTemperature = float(match.group(5))
+		try:
+			caseTemperature = float(match.group(6))
+			reset = int(match.group(7))
+		except:
+			caseTemperature = 1
+			reset = 0
 	except:
 		hours = 0
 		minutes = 0
 		seconds = 0
 		batteryLevel = 1
-		temperature = 1
-		
+		cameraTemperature = 1
+		caseTemperature = 1
+		reset = 0
+
 
 	time = now.strftime('%Y-%m-%d') + "T" + "%02d:%02d:%02d" % (hours, minutes, seconds) + ".000Z"
 	raspberryTime = now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -216,10 +225,12 @@ def collectStats (filename):
 	
 	stats = {
 		"environment": [ {
-			"camera":       CAMERA_ID,
-			"temperature":  temperature,
-			"batteryLevel": batteryLevel,
-			"time": time
+			"camera":          CAMERA_ID,
+			"temperature":     cameraTemperature,
+			"caseTemperature": caseTemperature,
+			"batteryLevel":    batteryLevel,
+			"reset":           reset,
+			"time":            time
 		} ],
 		"image": [ {
 			"camera":   CAMERA_ID,
@@ -274,7 +285,9 @@ def main ():
 
 	try:
 		cheese (filename)
-	except:
+	except Exception, exception:
+		logging.exception(exception)
+		log("=== waiting for two minutes")
 		time.sleep(120)
 	finally:
 		signalShuttingDown()
