@@ -1,0 +1,141 @@
+# create disk image on the MAC
+> diskutil list
+[...]
+/dev/disk2
+   #:                       TYPE NAME                    SIZE       IDENTIFIER
+   0:     FDisk_partition_scheme                        *3.9 GB     disk2
+   1:             Windows_FAT_32 boot                    58.7 MB    disk2s1
+   2:                      Linux                         3.2 GB     disk2s2
+
+
+> diskutil unmountDisk disk2
+
+> su - admin
+$ sudo dd bs=1m if=path_of_your_image.img of=/dev/rdisk2
+
+
+# Check for USB modem on Raspberry
+> lsusb
+====================================================================
+
+> sudo apt-get install -Y wvdial
+> sudo apt-get install -y usb-modeswitch
+> sudo apt-get install -y usb-modeswitch-data
+
+> sudo sakis3g connect USBMODEM="12d1:1c07" APN="ibox.tim.it" USBINTERFACE="0"
+
+> sudo apt-get install -y python-pip
+> sudo apt-get install -y gcc-4.8
+> sudo apt-get install -y python2.7-dev
+> sudo apt-get install -y gphoto2
+> sudo apt-get install -y wiringpi
+> sudo apt-get install -y imagemagick
+> sudo apt-get install -y hwinfo
+> sudo pip install keen
+
+====================================================================
+
+--------------------
+gphoto2 --list-config
+
+gphoto2 --force-overwrite --set-config capturetarget=0 --capture-image-and-download --filename=`date +"%Y-%m-%d_%H%M%S"`.%C
+gphoto2 --capture-image-and-download --filename=/mnt/photo/`date +"%Y-%m-%d_%H%M%S"`.%C
+
+DMG -> IMG
+> hdiutil convert (dmgfilename).dmg -format Rdxx -o (imgfilename).img
+
+> screen /dev/cu.usbserial 115200
+
+# ------------------------------------------------
+
+# packages to install
+sudo apt-get -y install python2.7-dev python-pip gphoto2 usb-modeswitch ppp hwinfo imagemagick
+# usbmount
+
+
+#wiring PI
+# https://projects.drogon.net/raspberry-pi/wiringpi/download-and-install/
+> git clone git://git.drogon.net/wiringPi
+> cd wiringPi; ./build; cd ..
+
+
+# pip modules to install
+sudo pip install keen
+
+
+
+# To install manually
+Sakis3g: http://www.sakis3g.com/
+         https://lawrencematthew.wordpress.com/2013/08/07/connect-raspberry-pi-to-a-3g-network-automatically-during-its-boot/
+         HUAWEI Mobile
+         sudo sakis3g connect USBMODEM="12d1:1001" APN="ibox.tim.it"
+		 
+> wget "http://www.sakis3g.com/downloads/sakis3g.tar.gz" -O sakis3g.tar.gz
+> tar -xzvf sakis3g.tar.gz
+> mv files/.../sakis3g /usr/local/bin/
+> chmod +x /usr/local/bin/sakis3g
+> rm -rf files
+> rm -rf sakis3g.tar.gz
+
+
+
+# EDIT /boot/cmdline.txt
+# https://www.raspberrypi.org/forums/viewtopic.php?t=99491
+Append 'rootdelay=10'
+
+
+# http://www.techjawab.com/2013/06/how-to-setup-mount-auto-mount-usb-hard.html
+ls -l /dev/disk/by-uuid/
+# 3F69-1DE2
+
+sudo mkdir -p /media/photo
+sudo chmod 770 /media/photo
+# sudo mount -t vfat -o uid=1000,gid=1000,umask=007 /dev/_sdc1_ /media/photo
+sudo mount -t vfat -o uid=1000,gid=1000,umask=007 /dev/sdb1 /media/photo
+sudo vi /etc/fstab
+# UUID=3F69-1DE2 /media/photo vfat auto,uid=1000,gid=1000,umask=007 0 2
+LABEL="PHOTO" /media/photo auto uid=1000,gid=1000,umask=007 0 1
+
+sudo ./sakis3g connect USBMODEM="12d1:1001" APN="ibox.tim.it"
+sudo ./sakis3g connect USBMODEM="12d1:1c05" APN="ibox.tim.it"
+sudo ./sakis3g disconnect
+
+
+
+
+edit /etc/network/interfaces
+
+#iface eth0 inet dhcp
+
+iface eth0 inet static
+address 192.168.168.2
+netmask 255.255.255.0
+network 192.168.168.0
+broadcast 192.168.168.255
+gateway 192.168.168.254
+
+
+
+# automatic start at boot
+edit /etc/rc.local
+
+su - pi -c "bash /home/pi/cheese/cheese &"
+
+
+# clone project
+git clone https://github.com/MakerStation/cheese.git
+
+
+
+# Clone SD card (with a Mac)
+
+> diskutil list
+# sudo dd if=/dev/rdisk2 of=/Users/giulio.cesare/Workarea/MakerStation/cheese.img bs=1m
+> sudo dd if=/dev/rdisk2 bs=1m | gzip > /Users/giulio.cesare/Workarea/MakerStation/images/cheese.img.gz
+> diskutil unmountDisk /dev/disk2
+# sudo dd of=/dev/rdisk2 if=/Users/giulio.cesare/Workarea/MakerStation/cheese.img bs=1m
+> gzip -dc /Users/giulio.cesare/Workarea/MakerStation/images/cheese-8GB.img.gz | sudo dd of=/dev/rdisk2 bs=1m
+
+
+
+> unzip -p /Users/giulio.cesare/Workarea/MakerStation/2015-05-05-raspbian-wheezy.zip | sudo dd of=/dev/rdisk4 bs=1m
