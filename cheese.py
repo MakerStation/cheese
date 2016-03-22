@@ -55,20 +55,20 @@ def remountFilesystem ():
 	log("<<< remount file system")
 	
 
-def signalOnPin (pin, message):
+def signalOnPin (pin, message, timeout):
 	log(">>> %s" % message)
 	command = ["gpio", "export", str(pin), "out"]
 	result = subprocess.check_output(command)
 	command = ["gpio", "-g", "write", str(pin), "1"]
 	result = subprocess.check_output(command)
-	time.sleep(1)
+	time.sleep(timeout)
 	command = ["gpio", "-g", "write", str(pin), "0"]
 	result = subprocess.check_output(command)
 	log("<<< %s" % message)
 	
 
 def turnCameraOn ():
-	signalOnPin(23, "turning camera on")
+	signalOnPin(23, "turning camera on", 1)
 	time.sleep(4)
 
 
@@ -257,7 +257,7 @@ def sendStats (stats):
 
 
 def signalShuttingDown ():
-	signalOnPin(18, "signal shutting down")
+	signalOnPin(18, "signal shutting down", 1)
 
 
 def shutdown ():
@@ -289,7 +289,7 @@ def main ():
 	except Exception, exception:
 		logging.exception(exception)
 		log("=== waiting for two minutes")
-		time.sleep(120)
+		signalOnPin(17, "turning error leg on", 120)
 	finally:
 		signalShuttingDown()
 		shutdown()
